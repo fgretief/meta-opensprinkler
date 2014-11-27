@@ -10,9 +10,12 @@ S = "${WORKDIR}/git"
 
 RDEPENDS_${PN} += "python"
 
-install() {
-	install -m 0755 -d ${D}/home/OSBo
-	cp -r ${S} ${D}/home/OSBo
+do_install() {
+	install -m 0755 -d ${D}/home/OSBo/
+	cp -r ${S}/. ${D}/home/OSBo/
+	rm -rf ${D}/home/OSBo/.git
 }
+
+FILES_${PN} = "/home/OSBo/"
 
 # Still a work in progress ...
