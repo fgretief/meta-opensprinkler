@@ -1,0 +1,272 @@
+diff --git a/ospi.py b/ospi.py
+index 801590d..5dee598 100644
+--- a/ospi.py
++++ b/ospi.py
+@@ -5,7 +5,8 @@ import web # the Web.py module. See webpy.org (Enables the OpenSprinkler web int
+ import gv # 'global vars' An empty module, used for storing vars (as attributes), that need to be 'global' across threads and between functions and classes.
+ 
+ try:
+-    import RPi.GPIO as GPIO # Required for accessing General Purpose Input Output pins on Raspberry Pi
++    #import RPi.GPIO as GPIO # Required for accessing General Purpose Input Output pins on Raspberry Pi
++    import Adafruit_BBIO.GPIO as GPIO
+ except ImportError:
+     pass
+ 
+@@ -77,8 +78,9 @@ def clear_mm():
+ def CPU_temperature():
+     """Returns the temperature of the Raspberry Pi's CPU."""
+     try:
+-        res = os.popen('vcgencmd measure_temp').readline()
+-        return(res.replace("temp=","").replace("'C\n",""))
++        #res = os.popen('vcgencmd measure_temp').readline()
++        #return(res.replace("temp=","").replace("'C\n",""))
++        return 0;
+     except:
+         pass
+ 
+@@ -405,14 +407,14 @@ try:
+     if not 'ir' in gv.sd: gv.sd['ir'] = [0]#*gv.sd['nbrd']
+     if not 'loc' in gv.sd: gv.sd['loc'] = ""
+     if not 'snlen' in gv.sd: gv.sd['snlen'] = 32
+-    if not 'name' in gv.sd: gv.sd['name'] = u"OpenSprinkler Pi"
++    if not 'name' in gv.sd: gv.sd['name'] = u"OpenSprinkler Beagle"
+ except IOError: # If file does not exist, create with defaults.
+     gv.sd = ({"en": 1, "seq": 1, "mnp": 32, "ir": [0], "rsn": 0, "htp": 8080, "nst": 8,
+               "rdst": 0, "loc": "", "tz": 48, "rs": 0, "rd": 0, "mton": 0,
+               "lr": "100", "sdt": 0, "mas": 0, "wl": 100, "bsy": 0, "lg": "",
+               "urs": 0, "nopts": 13, "pwd": "b3BlbmRvb3I=", "ipas": 0, "rst": 1,
+               "mm": 0, "mo": [0], "rbt": 0, "mtoff": 0, "nprogs": 1, "nbrd": 1, "tu": "C",
+-              "snlen":32, "name":u"OpenSprinkler Pi",})
++              "snlen":32, "name":u"OpenSprinkler Beagle",})
+     sdf = open('./data/sd.json', 'w')
+     json.dump(gv.sd, sdf)
+     sdf.close()
+@@ -460,10 +462,10 @@ except NameError:
+     pass
+ 
+   #### pin defines ####
+-pin_sr_dat = 13
+-pin_sr_clk = 7
+-pin_sr_noe = 11
+-pin_sr_lat = 15
++pin_sr_dat = "P9_11"
++pin_sr_clk = "P9_13"
++pin_sr_noe = "P9_14"
++pin_sr_lat = "P9_12"
+ 
+ def enableShiftRegisterOutput():
+     try:
+@@ -480,7 +482,7 @@ def disableShiftRegisterOutput():
+ try:
+     GPIO.cleanup()
+   #### setup GPIO pins to interface with shift register ####
+-    GPIO.setmode(GPIO.BOARD) #IO channels are identified by header connector pin numbers. Pin numbers are always the same regardless of Raspberry Pi board revision.
++    #GPIO.setmode(GPIO.BOARD) #IO channels are identified by header connector pin numbers. Pin numbers are always the same regardless of Raspberry Pi board revision.
+     GPIO.setup(pin_sr_clk, GPIO.OUT)
+     GPIO.setup(pin_sr_noe, GPIO.OUT)
+     disableShiftRegisterOutput()
+@@ -973,7 +975,7 @@ class show_revision:
+     """Show revision info to the user. Use: [URL of Pi]/rev."""
+     def GET(self):
+         revpg = '<!DOCTYPE html>\n'
+-        revpg += 'Python Interval Program for OpenSprinkler Pi<br/><br/>\n'
++        revpg += 'Python Interval Program for OpenSprinkler Beagle<br/><br/>\n'
+         revpg += 'Compatable with OpenSprinkler firmware 1.8.3.<br/><br/>\n'
+         revpg += 'ospi.py revision: '+str(gv.rev) +'<br/><br/>\n'
+         revpg += 'updated ' + gv.rev_date +'\n'
+diff --git a/ospi.sh b/ospi.sh
+deleted file mode 100644
+index 57dbe2b..0000000
+--- a/ospi.sh
++++ /dev/null
+@@ -1,170 +0,0 @@
+-#! /bin/sh
+-### BEGIN INIT INFO
+-# Provides:          ospi
+-# Required-Start:    $remote_fs $syslog
+-# Required-Stop:     $remote_fs $syslog
+-# Default-Start:     2 3 4 5
+-# Default-Stop:      0 1 6
+-# Short-Description: OpenSprinkler + Raspberry Pi
+-# Description:       OpenSprinkler + Raspberry Pi - Raspberry Pi with
+-#                    OpenSprinkler Pi board from Ray's Hobby
+-### END INIT INFO
+-
+-#
+-# To auto start on boot execute (once) as root
+-#
+-# update-rc.d ospi defaults
+-#
+-# To stop auto start on boot execute
+-#
+-# update-rc.d ospi remove
+-#
+-
+-# Author: Denny Fox <dennyf at dfox.us>
+-#
+-# Please remove the "Author" lines above and replace them
+-# with your own name if you copy and modify this script.
+-
+-# Do NOT "set -e"
+-
+-# PATH should only include /usr/* if it runs after the mountnfs.sh script
+-PATH=/sbin:/usr/sbin:/bin:/usr/bin
+-DESC="OpenSprinkler Raspberry Pi"
+-NAME=ospi.py
+-DAEMON=/usr/bin/python
+-DAEMON_ARGS="ospi.py"
+-HOMEDIR=/home/pi/OSPi/ # Edit if different on your Raspberry Pi
+-PIDFILE=/var/run/$NAME.pid
+-SCRIPTNAME=/etc/init.d/$NAME
+-
+-# Exit if the package is not installed
+-[ -x "$DAEMON" ] || exit 0
+-
+-# Read configuration variable file if it is present
+-[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+-
+-# Load the VERBOSE setting and other rcS variables
+-. /lib/init/vars.sh
+-
+-# Define LSB log_* functions.
+-# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+-# and status_of_proc is working.
+-. /lib/lsb/init-functions
+-
+-#
+-# Function that starts the daemon/service
+-#
+-do_start()
+-{
+-		# Return
+-		#   0 if daemon has been started
+-		#   1 if daemon was already running
+-		#   2 if daemon could not be started
+-		start-stop-daemon --start --quiet --chdir $HOMEDIR --pidfile $PIDFILE --make-pidfile --background --exec $DAEMON --test > /dev/null \
+-				|| return 1
+-		start-stop-daemon --start --quiet --chdir $HOMEDIR --pidfile $PIDFILE --make-pidfile --background --exec $DAEMON -- \
+-				$DAEMON_ARGS \
+-				|| return 2
+-		# Add code here, if necessary, that waits for the process to be ready
+-		# to handle requests from services started subsequently which depend
+-		# on this one.  As a last resort, sleep for some time.
+-}
+-
+-#
+-# Function that stops the daemon/service
+-#
+-do_stop()
+-{
+-		# Return
+-		#   0 if daemon has been stopped
+-		#   1 if daemon was already stopped
+-		#   2 if daemon could not be stopped
+-		#   other if a failure occurred
+-		start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE
+-		RETVAL="$?"
+-		[ "$RETVAL" = 2 ] && return 2
+-		# Wait for children to finish too if this is a daemon that forks
+-		# and if the daemon is only ever run from this initscript.
+-		# If the above conditions are not satisfied then add some other code
+-		# that waits for the process to drop all resources that could be
+-		# needed by services started subsequently.  A last resort is to
+-		# sleep for some time.
+-		start-stop-daemon --stop --quiet --oknodo --retry=0/30/KILL/5 --exec $DAEMON
+-		[ "$?" = 2 ] && return 2
+-		# Many daemons don't delete their pidfiles when they exit.
+-		rm -f $PIDFILE
+-		return "$RETVAL"
+-}
+-
+-#
+-# Function that sends a SIGHUP to the daemon/service
+-#
+-do_reload() {
+-		#
+-		# If the daemon can reload its configuration without
+-		# restarting (for example, when it is sent a SIGHUP),
+-		# then implement that here.
+-		#
+-		start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
+-		return 0
+-}
+-
+-case "$1" in
+-  start)
+-		[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+-		do_start
+-		case "$?" in
+-				0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+-				2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+-		esac
+-		;;
+-  stop)
+-		[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+-		do_stop
+-		case "$?" in
+-				0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+-				2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+-		esac
+-		;;
+-  status)
+-		status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+-		;;
+-  #reload|force-reload)
+-		#
+-		# If do_reload() is not implemented then leave this commented out
+-		# and leave 'force-reload' as an alias for 'restart'.
+-		#
+-		#log_daemon_msg "Reloading $DESC" "$NAME"
+-		#do_reload
+-		#log_end_msg $?
+-		#;;
+-  restart|force-reload)
+-		#
+-		# If the "reload" option is implemented then remove the
+-		# 'force-reload' alias
+-		#
+-		log_daemon_msg "Restarting $DESC" "$NAME"
+-		do_stop
+-		case "$?" in
+-		  0|1)
+-				do_start
+-				case "$?" in
+-						0) log_end_msg 0 ;;
+-						1) log_end_msg 1 ;; # Old process is still running
+-						*) log_end_msg 1 ;; # Failed to start
+-				esac
+-				;;
+-		  *)
+-				# Failed to stop
+-				log_end_msg 1
+-				;;
+-		esac
+-		;;
+-  *)
+-		#echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload}" >&2
+-		echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
+-		exit 3
+-		;;
+-esac
+-
+-:
+diff --git a/sd_reference.txt b/sd_reference.txt
+index 4c33688..ec346dc 100644
+--- a/sd_reference.txt
++++ b/sd_reference.txt
+@@ -24,7 +24,7 @@ loc:""	location (for weather) - not used
+ rdst:0	rain delay stop time (unix time stamp)
+ rs:0	rain sensed
+ nopts:14 Number of optiions to be displayed
+-name:"OpenSprinkler Pi"	configurable name for system
++name:"OpenSprinkler Beagle"	configurable name for system
+ snlen:32 max size of station names
+ 
+ for scheduling:
+@@ -38,4 +38,4 @@ nst:8 number of stations
+ 
+ for logging:
+ lg:0 log runs if = "checked"
+-lr:30 limit number of log records to keep, 0 = no limit
+\ No newline at end of file
++lr:30 limit number of log records to keep, 0 = no limit
