@@ -7,4 +7,5 @@ LICENSE = "MIT"
 IMAGE_INSTALL += " \
     packagegroup-opensprinkler \
     lua \
+    mc \
     "
